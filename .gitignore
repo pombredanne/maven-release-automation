@@ -1,0 +1,10 @@
+# Intellij project files
+.idea/
+*.iml
+
+# Python generated files
+*.pyc
+
+# Release log
+release.log
+
