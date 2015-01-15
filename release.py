@@ -18,7 +18,7 @@ import release_common
 
 # Maintain the correct ordering of projects to be released.
 # If project B has project A as its dependency, B should be put after A in the list.
-ALL_COMPONENTS = ['project-a', 'project-B', 'project-C']
+ALL_COMPONENTS = ['project-a', 'project-b', 'project-c']
 
 options = release_common.parse_options()
 
@@ -32,4 +32,10 @@ if not options.no_release_branch:
     release_common.create_release_branch('..', components[0], options)
     for component in components[1:]:
         release_common.update_project_version('..', component, options)
+    release_common.checkout_develop_branch()
+
+if not options.release_branch_only:
+    for component in components:
+        release_common.post_release_component('..', component, options)
+
 

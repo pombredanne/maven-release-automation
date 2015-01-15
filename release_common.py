@@ -22,7 +22,7 @@ import time
 LOG_FILE = 'release.log'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
-MAIN_BRANCH_NAME = 'master'
+DEVELOP_BRANCH_NAME = 'master'
 RELEASE_BRANCH_NAME = 'release/%s'
 RELEASE_BRANCH_VERSION = '%s.1-SNAPSHOT'
 
@@ -63,8 +63,8 @@ MVN_DEPLOY = ['clean', 'deploy', '-DskipTests']
 MVN_DEPLOY_TEST = ['clean', 'deploy', '-DskipTests']
 
 GIT_FIND_CLOSEST_TAG = ['git', 'describe', '--abbrev=0']
-
 GIT_CHECKOUT_BRANCH = ['git', 'checkout', '%s']
+GIT_FIND_CURRENT_BRANCH = ['git', 'rev-parse', '--abbrev-ref', 'HEAD']
 
 
 def configure_logging():
@@ -100,7 +100,6 @@ prepare_for_release()
 def parse_options():
     """
     Parse command-line options submitted to the script
-    See https://docs.python.org/2/library/argparse.html for usage
     """
     parser = argparse.ArgumentParser(description='Maven release automation script')
     parser.add_argument('-b', '--release-branch-only', default=False, required=False, action='store_true',
@@ -112,6 +111,7 @@ def parse_options():
     parser.add_argument('-o', '--only', required=False,
                         help='if you want to release a single component only, set its name in this option')
     parser.add_argument('-r', '--release_version', dest='release_version', help='version to be released')
+    # TODO for this option to work correctly, steps mechanism has to be implemented
     parser.add_argument('-s', '--start-from', required=False, dest='start_from',
                         help='If you want to continue aborted release from some component, set its name in this option')
     # TODO set default to False after the code is production-ready
@@ -252,7 +252,7 @@ def use_next_snapshots(pom_path, component, options):
 
 def release_component(path, component, options):
     """
-    Releases PPP component
+    Releases a project
     :param path: str: relative path to the project root
     :param component: str: name of the component being released at the moment
     :param options: [str]: command-line script options
@@ -261,8 +261,18 @@ def release_component(path, component, options):
     LOG.info('starting to release %s' % component)
     use_releases(pom_path, component, options)
     perform_release(pom_path, component, options)
-    use_next_snapshots(pom_path, component, options)
     LOG.info(('release of %s completed ' + os.linesep + os.linesep) % component)
+
+
+def post_release_component(path, component, options):
+    """
+    TODO document
+    :param path:
+    :param component:
+    :param options:
+    """
+    pom_path = os.path.join(path, component, 'pom.xml')
+    use_next_snapshots(pom_path, component, options)
     deploy_component(path, component, options)
 
 
@@ -303,6 +313,7 @@ def create_release_branch(path, component, options):
     :param component: str: name of the component used as a base for mvn release:branch command
     :param options: [str]: command-line script options
     """
+    global DEVELOP_BRANCH_NAME
     release = find_release_version(options)
     branch_name = RELEASE_BRANCH_NAME % release
     branch_version = RELEASE_BRANCH_VERSION % release
@@ -314,11 +325,21 @@ def create_release_branch(path, component, options):
     args = resolve_arguments_placeholder(args, lambda x: x.find('-DreleaseVersion') > -1, branch_version)
     exec_maven_command(pom_path, component, args)
     LOG.info('release branch %s created' % branch_name)
+    DEVELOP_BRANCH_NAME = exec_os_command_with_output(GIT_FIND_CURRENT_BRANCH).strip()
     args = GIT_CHECKOUT_BRANCH[:]
     args = resolve_arguments_placeholder(args, lambda x: x.find('%s') > -1, branch_name)
     exec_os_command(args)
     LOG.info('checked out release branch')
     deploy_component(path, component, options)
+
+
+def checkout_develop_branch():
+    """
+    Check out development branch
+    """
+    args = GIT_CHECKOUT_BRANCH[:]
+    args = resolve_arguments_placeholder(args, lambda x: x.find('%s') > -1, DEVELOP_BRANCH_NAME)
+    exec_os_command(args)
 
 
 def update_project_version(path, component, options):
