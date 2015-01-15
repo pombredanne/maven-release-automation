@@ -360,13 +360,14 @@ def update_project_version(path, component, options):
     """
     release = find_release_version(options)
     branch_version = RELEASE_BRANCH_VERSION % release
+    branch_name = RELEASE_BRANCH_NAME % release
     pom_path = os.path.join(path, component, 'pom.xml')
 
     LOG.info('Updating version of component %s to %s' % (component, branch_version))
     args = MVN_UPDATE_VERSIONS_TEST[:] if options.test_mode else MVN_UPDATE_VERSIONS
     args = resolve_arguments_placeholder(args, lambda x: x.find('-Dmessage') > -1, component)
     args = resolve_arguments_placeholder(args, lambda x: x.find('-DdevelopmentVersion') > -1, branch_version)
-    set_scm_tag(pom_path, branch_version)
+    set_scm_tag(pom_path, branch_name)
     exec_maven_command(pom_path, component, args)
     LOG.info('%s project version updated' % component)
     deploy_component(path, component, options)
