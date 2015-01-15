@@ -32,10 +32,10 @@ if not options.no_release_branch:
     release_common.create_release_branch('..', components[0], options)
     for component in components[1:]:
         release_common.update_project_version('..', component, options)
-    release_common.checkout_develop_branch()
+    release_common.checkout_development_branch()
 
 if not options.release_branch_only:
-    for component in components:
+    for component in ALL_COMPONENTS:  # TODO temporary fix until proper steps mechanism is not implemented
         release_common.post_release_component('..', component, options)
 
 

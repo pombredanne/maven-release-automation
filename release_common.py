@@ -326,20 +326,26 @@ def create_release_branch(path, component, options):
     exec_maven_command(pom_path, component, args)
     LOG.info('release branch %s created' % branch_name)
     DEVELOP_BRANCH_NAME = exec_os_command_with_output(GIT_FIND_CURRENT_BRANCH).strip()
-    args = GIT_CHECKOUT_BRANCH[:]
-    args = resolve_arguments_placeholder(args, lambda x: x.find('%s') > -1, branch_name)
-    exec_os_command(args)
-    LOG.info('checked out release branch')
+    checkout_branch(branch_name)
     deploy_component(path, component, options)
 
 
-def checkout_develop_branch():
+def checkout_branch(branch_name):
+    """
+    Check out branch with a given name
+    :param branch_name: str: name of the branch to check out
+    """
+    args = GIT_CHECKOUT_BRANCH[:]
+    args = resolve_arguments_placeholder(args, lambda x: x.find('%s') > -1, branch_name)
+    exec_os_command(args)
+    LOG.info('checked out branch %s' % branch_name)
+
+
+def checkout_development_branch():
     """
     Check out development branch
     """
-    args = GIT_CHECKOUT_BRANCH[:]
-    args = resolve_arguments_placeholder(args, lambda x: x.find('%s') > -1, DEVELOP_BRANCH_NAME)
-    exec_os_command(args)
+    checkout_branch(DEVELOP_BRANCH_NAME)
 
 
 def update_project_version(path, component, options):
