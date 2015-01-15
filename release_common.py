@@ -288,11 +288,12 @@ def deploy_component(path, component, options):
     :param component:
     :param options:
     """
-    pom_path = os.path.join(path, component, 'pom.xml')
-    LOG.info('deploying %s' % component)
-    args = MVN_DEPLOY_TEST[:] if options.test_mode else MVN_DEPLOY
-    exec_maven_command(pom_path, component, args)
-    LOG.info('%s deployed' % component)
+    if not options.test_mode:
+        pom_path = os.path.join(path, component, 'pom.xml')
+        LOG.info('deploying %s' % component)
+        args = MVN_DEPLOY_TEST[:] if options.test_mode else MVN_DEPLOY
+        exec_maven_command(pom_path, component, args)
+        LOG.info('%s deployed' % component)
 
 
 def create_release_branch(path, component, options):
