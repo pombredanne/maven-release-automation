@@ -3,6 +3,7 @@
 """
 Utility functions for Maven release automation scripts.
 """
+import re
 
 __author__ = "Zmicier Zaleznicenka"
 __copyright__ = "Copyright 2015 Zmicier Zaleznicenka"
@@ -18,6 +19,8 @@ import logging
 import os
 from subprocess import check_call, CalledProcessError, check_output
 import time
+
+RE_SCM_TAG = re.compile('<tag>(\S*)</tag>')
 
 LOG_FILE = 'release.log'
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -363,6 +366,7 @@ def update_project_version(path, component, options):
     args = MVN_UPDATE_VERSIONS_TEST[:] if options.test_mode else MVN_UPDATE_VERSIONS
     args = resolve_arguments_placeholder(args, lambda x: x.find('-Dmessage') > -1, component)
     args = resolve_arguments_placeholder(args, lambda x: x.find('-DdevelopmentVersion') > -1, branch_version)
+    set_scm_tag(pom_path, branch_version)
     exec_maven_command(pom_path, component, args)
     LOG.info('%s project version updated' % component)
     deploy_component(path, component, options)
@@ -378,3 +382,20 @@ def find_release_version(options):
     else:
         tag = exec_os_command_with_output(GIT_FIND_CLOSEST_TAG)
         return tag[tag.rfind('-') + 1:].rstrip()
+
+
+def set_scm_tag(pom_path, version):
+    """
+    TODO document
+    :param pom_path:
+    :param version:
+    """
+    with open(pom_path) as f:
+        pom = f.read()
+
+    (pom, n) = RE_SCM_TAG.subn('<tag>%s</tag>' % version, pom)
+    if not n:
+        LOG.warn('SCM tag was not set in %s, update it manually' % pom_path)
+    else:
+        with open(pom_path, 'w') as f:
+            f.write(pom)
