@@ -70,6 +70,22 @@ GIT_CHECKOUT_BRANCH = ['git', 'checkout', '%s']
 GIT_FIND_CURRENT_BRANCH = ['git', 'rev-parse', '--abbrev-ref', 'HEAD']
 
 
+def get_script_dir():
+    """
+    Get absolute path to the directory where the release scripts are located.
+    :return: str: absolute path to the release scripts directory
+    """
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def get_log_file_path():
+    """
+    Get absolute log file path
+    :return: str: log file path
+    """
+    return os.sep.join([get_script_dir(), LOG_FILE])
+
+
 def configure_logging():
     """
     Configure logging working with both file (DEBUG level) and console (INFO level)
@@ -91,8 +107,8 @@ def prepare_for_release():
     """
     Execute release preparation checks and routines
     """
-    if os.path.isfile(LOG_FILE):
-        os.remove(LOG_FILE)
+    if os.path.isfile(get_log_file_path()):
+        os.remove(get_log_file_path())
     configure_logging()
 
 
@@ -156,7 +172,7 @@ def define_components_to_release(all_components, options):
 def exec_maven_command(pom_path, component, args):
     """
     Execute a Maven command with -B and -U switches for given pom.xml file.
-    :param pom_path: str: relative path to maven pom.xml file to be used
+    :param pom_path: str: absolute path to maven pom.xml file to be used
     :param component: str: name of the component being released at the moment
     :param args: [str]: sequence of other command-line arguments to mvn command
     """
@@ -174,7 +190,7 @@ def exec_os_command_with_output(args):
     :param args: [str]: command with its arguments
     :return output: str: command output
     """
-    with open(LOG_FILE, 'a') as log_file:
+    with open(get_log_file_path(), 'a') as log_file:
         return check_output(args, stderr=log_file)
 
 
@@ -184,7 +200,7 @@ def exec_os_command(args):
     On error exit status raise an exception.
     :param args: [str]: command with its arguments
     """
-    with open(LOG_FILE, 'a') as log_file:
+    with open(get_log_file_path(), 'a') as log_file:
         check_call(args, stdout=log_file, stderr=log_file)
 
 
@@ -209,9 +225,9 @@ def resolve_arguments_placeholder(arguments, predicate, value):
 
 def use_releases(pom_path, component, options):
     """
-    # TODO document
+    Update snapshot versions of project dependencies to release versions
     :param options: [str]: command-line script options
-    :param pom_path: str: relative path to maven pom.xml file to be used
+    :param pom_path: str: absolute path to maven pom.xml file to be used
     :param component: str: name of the component being released at the moment
     """
     LOG.info("updating snapshot versions of %s dependencies to release..." % component)
@@ -224,7 +240,7 @@ def use_releases(pom_path, component, options):
 def perform_release(pom_path, component, options):
     """
     Run Maven release plugin to prepare and perform the release
-    :param pom_path: str: relative path to maven pom.xml file to be used
+    :param pom_path: str: absolute path to maven pom.xml file to be used
     :param component: str: name of the component being released at the moment
     :param options: [str]: command-line script options
     """
@@ -241,8 +257,8 @@ def perform_release(pom_path, component, options):
 
 def use_next_snapshots(pom_path, component, options):
     """
-    # TODO document
-    :param pom_path: str: relative path to maven pom.xml file to be used
+    Set release versions of project dependencies to next snapshot versions
+    :param pom_path: str: absolute path to maven pom.xml file to be used
     :param component: str: name of the component being released at the moment
     :param options: [str]" command-line script options
     """
@@ -255,12 +271,12 @@ def use_next_snapshots(pom_path, component, options):
 
 def release_component(path, component, options):
     """
-    Releases a project
-    :param path: str: relative path to the project root
+    Release a component
+    :param path: str: relative path from script location to the component location
     :param component: str: name of the component being released at the moment
     :param options: [str]: command-line script options
     """
-    pom_path = os.path.join(path, component, 'pom.xml')
+    pom_path = get_absolute_pom_path(path, component)
     LOG.info('starting to release %s' % component)
     use_releases(pom_path, component, options)
     perform_release(pom_path, component, options)
@@ -269,12 +285,12 @@ def release_component(path, component, options):
 
 def post_release_component(path, component, options):
     """
-    TODO document
-    :param path:
-    :param component:
-    :param options:
+    Perform post-release tasks
+    :param path: str: relative path from script location to the component location
+    :param component: str: name of the component being released at the moment
+    :param options: [str]: command-line script options
     """
-    pom_path = os.path.join(path, component, 'pom.xml')
+    pom_path = get_absolute_pom_path(path, component)
     use_next_snapshots(pom_path, component, options)
     deploy_component(path, component, options)
 
@@ -283,11 +299,11 @@ def update_it_dependencies(path, component, options):
     """
     This function will only update dependencies' versions without performing an actual release.
     It can be useful for integration test projects that do not have to be published.
-    :param path: str: relative path to the project root
+    :param path: str: relative path from script location to the component location
     :param component: str: name of the component being updated at the moment
     :param options: [str]: command-line script options
     """
-    pom_path = os.path.join(path, component, 'pom.xml')
+    pom_path = get_absolute_pom_path(path, component)
     LOG.info('starting to update %s' % component)
     use_releases(pom_path, component, options)
     use_next_snapshots(pom_path, component, options)
@@ -296,13 +312,13 @@ def update_it_dependencies(path, component, options):
 
 def deploy_component(path, component, options):
     """
-    TODO document
-    :param path:
-    :param component:
-    :param options:
+    Execute Maven deployment job
+    :param path: str: relative path from script location to the component location
+    :param component: str: name of the component being updated at the moment
+    :param options: [str]: command-line script options
     """
     if not options.test_mode:
-        pom_path = os.path.join(path, component, 'pom.xml')
+        pom_path = get_absolute_pom_path(path, component)
         LOG.info('deploying %s' % component)
         args = MVN_DEPLOY_TEST[:] if options.test_mode else MVN_DEPLOY
         exec_maven_command(pom_path, component, args)
@@ -312,7 +328,7 @@ def deploy_component(path, component, options):
 def create_release_branch(path, component, options):
     """
     Create a branch out of release version from a given component and update its version
-    :param path: str: relative path to the project root
+    :param path: str: relative path from script location to the component location
     :param component: str: name of the component used as a base for mvn release:branch command
     :param options: [str]: command-line script options
     """
@@ -320,7 +336,7 @@ def create_release_branch(path, component, options):
     release = find_release_version(options)
     branch_name = RELEASE_BRANCH_NAME % release
     branch_version = RELEASE_BRANCH_VERSION % release
-    pom_path = os.path.join(path, component, 'pom.xml')
+    pom_path = get_absolute_pom_path(path, component)
 
     LOG.info('creating release branch %s' % branch_name)
     args = MVN_RELEASE_BRANCH_TEST[:] if options.test_mode else MVN_RELEASE_BRANCH
@@ -353,15 +369,15 @@ def checkout_development_branch():
 
 def update_project_version(path, component, options):
     """
-    TODO document
-    :param path:
-    :param component:
-    :param options:
+    Update version of the project to the one specified in options or those of a release branch
+    :param path: str: relative path from script location to the component location
+    :param component: str: name of the component used as a base for mvn release:branch command
+    :param options: [str]: command-line script options
     """
     release = find_release_version(options)
     branch_version = RELEASE_BRANCH_VERSION % release
     branch_name = RELEASE_BRANCH_NAME % release
-    pom_path = os.path.join(path, component, 'pom.xml')
+    pom_path = get_absolute_pom_path(path, component)
 
     LOG.info('Updating version of component %s to %s' % (component, branch_version))
     args = MVN_UPDATE_VERSIONS_TEST[:] if options.test_mode else MVN_UPDATE_VERSIONS
@@ -375,7 +391,7 @@ def update_project_version(path, component, options):
 
 def find_release_version(options):
     """
-    Derives released version from the closest git tag
+    Derive released version from the closest git tag
     :param options: [str]: command-line script options
     """
     if options.release_version:
@@ -385,18 +401,38 @@ def find_release_version(options):
         return tag[tag.rfind('-') + 1:].rstrip()
 
 
-def set_scm_tag(pom_path, version):
+def set_scm_tag(pom_path, value):
     """
-    TODO document
-    :param pom_path:
-    :param version:
+    Set value of scm tag parameter in pom file to the given value
+    :param pom_path: str: absolute path to maven pom.xml file to be used
+    :param value: value to set
     """
     with open(pom_path) as f:
         pom = f.read()
 
-    (pom, n) = RE_SCM_TAG.subn('<tag>%s</tag>' % version, pom)
+    (pom, n) = RE_SCM_TAG.subn('<tag>%s</tag>' % value, pom)
     if not n:
         LOG.warn('SCM tag was not set in %s, update it manually' % pom_path)
     else:
         with open(pom_path, 'w') as f:
             f.write(pom)
+
+
+def get_absolute_path(rel_path, file_name):
+    """
+    Get absolute path to a given file given its relative path to the script and name
+    :param rel_path: str: relative path to file dir
+    :param file_name: str: name of file
+    :return: absolute file path
+    """
+    return os.sep.join([get_script_dir(), rel_path, file_name])
+
+
+def get_absolute_pom_path(rel_path, component):
+    """
+    Given relative path from the script location to project root, return absolute path to project's pom file.
+    :param rel_path: str: relative path from script location to the component location
+    :param component: str: component to be released
+    :return: absolute path to component's root pom.xml
+    """
+    return get_absolute_path(os.path.join(rel_path, component), 'pom.xml')
